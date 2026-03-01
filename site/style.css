@@ -260,6 +260,7 @@ main > section {
 .code-flow h2,
 .features h2,
 .architecture h2,
+.cloud h2,
 .quick-start h2,
 .github h2 {
   margin: 0.6rem 0 0.9rem;
@@ -271,6 +272,7 @@ main > section {
 .code-flow p:not(.eyebrow),
 .features > p:not(.eyebrow),
 .architecture > p:not(.eyebrow),
+.cloud > p:not(.eyebrow),
 .quick-start > p:not(.eyebrow),
 .github p {
   margin: 0;
@@ -424,7 +426,8 @@ main > section {
 }
 
 .features,
-.architecture {
+.architecture,
+.cloud {
   text-align: center;
 }
 
@@ -440,7 +443,15 @@ main > section {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.cloud-grid {
+  margin-top: 1.4rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 .feature-grid article,
+.cloud-grid article,
 .crate-grid article {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -452,21 +463,42 @@ main > section {
 }
 
 .feature-grid article:hover,
+.cloud-grid article:hover,
 .crate-grid article:hover {
   transform: translateY(-4px);
   box-shadow: 0 14px 36px rgba(54, 34, 28, 0.14);
 }
 
 .feature-grid article h3,
+.cloud-grid article h3,
 .crate-grid article h3 {
   margin: 0;
   font-size: 1.05rem;
 }
 
 .feature-grid article p,
+.cloud-grid article p,
 .crate-grid article p {
   margin: 0.5rem 0 0;
   color: var(--ink-2);
+}
+
+.cloud-grid code {
+  font-family: "IBM Plex Mono", "Fira Code", monospace;
+  font-size: 0.78em;
+  background: rgba(95, 75, 102, 0.08);
+  border-radius: 6px;
+  padding: 0.12rem 0.34rem;
+}
+
+.cloud-grid a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.cloud-grid a:hover,
+.cloud-grid a:focus-visible {
+  color: #4b3b51;
 }
 
 .crate-grid {
@@ -623,6 +655,10 @@ main > section {
   .feature-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .cloud-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -640,6 +676,7 @@ main > section {
   }
 
   .feature-grid,
+  .cloud-grid,
   .crate-grid {
     grid-template-columns: 1fr;
   }

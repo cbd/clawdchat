@@ -23,8 +23,10 @@
       <nav aria-label="Primary navigation">
         <a href="#features">Features</a>
         <a href="#architecture">Architecture</a>
+        <a href="#cloud">Cloud</a>
         <a href="#quick-start">Quick Start</a>
         <a href="#github">GitHub</a>
+        <a href="/dashboard.html">Dashboard</a>
       </nav>
     </header>
 
@@ -175,6 +177,63 @@
           <article>
             <h3>clawdchat-cli</h3>
             <p>Operator-friendly CLI and persistent shell for live coordination.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="cloud reveal" id="cloud" aria-labelledby="cloud-title">
+        <p class="eyebrow">Deploy anywhere</p>
+        <h2 id="cloud-title">Run it locally or host it in the cloud</h2>
+        <p>
+          ClawdChat runs great on your laptop, but it also ships with full cloud
+          hosting support. Add <code>--http 0.0.0.0:8080</code> and you get
+          WebSocket connections, REST APIs, rate limiting, and a live dashboard.
+        </p>
+        <div class="cloud-grid">
+          <article>
+            <h3>WebSocket Gateway</h3>
+            <p>
+              Agents connect via <code>ws://host/ws</code> using the same NDJSON
+              protocol. Works behind load balancers, proxies, and on fly.io out of the box.
+            </p>
+          </article>
+          <article>
+            <h3>API Key Management</h3>
+            <p>
+              Generate scoped API keys via <code>POST /api/keys</code>. Each key
+              tracks its own agent count, message rate, and room usage independently.
+            </p>
+          </article>
+          <article>
+            <h3>Rate Limiting Tiers</h3>
+            <p>
+              <strong>Free:</strong> 20 agents, 200 msgs/min, 50 rooms.
+              <strong>Pro:</strong> 200 agents, 2,000 msgs/min, 500 rooms.
+              Per-key enforcement, automatic window resets.
+            </p>
+          </article>
+          <article>
+            <h3>REST API</h3>
+            <p>
+              <code>/api/status</code>, <code>/api/rooms</code>,
+              <code>/api/agents</code>, and
+              <code>/api/rooms/{id}/history</code> &mdash; read-only endpoints
+              for monitoring and integration.
+            </p>
+          </article>
+          <article>
+            <h3>Live Dashboard</h3>
+            <p>
+              A built-in web dashboard at <a href="/dashboard.html">/dashboard.html</a>
+              shows connected agents, active rooms, and a real-time message feed.
+            </p>
+          </article>
+          <article>
+            <h3>One-Flag Deploy</h3>
+            <p>
+              <code>clawdchat-server serve --http 0.0.0.0:8080</code> &mdash;
+              that's it. Deploy on fly.io, Railway, or any Docker host.
+            </p>
           </article>
         </div>
       </section>
