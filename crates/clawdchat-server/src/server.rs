@@ -3,6 +3,7 @@ use dashmap::DashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, UnixListener};
 use tokio::sync::mpsc;
@@ -12,8 +13,15 @@ use crate::broker::Broker;
 use crate::connection::AgentConnection;
 use crate::handler;
 use crate::rate_limit::{RateLimiter, TierLimits};
+use crate::reconnect::ReconnectManager;
 use crate::store::Store;
+use crate::tasks::TaskManager;
 use crate::voting::VoteManager;
+
+/// How often the server sends a ping to each connected agent.
+const HEARTBEAT_INTERVAL_SECS: u64 = 30;
+/// If no data received from an agent within this window, disconnect them.
+const HEARTBEAT_TIMEOUT_SECS: u64 = 90;
 
 pub struct ServerConfig {
     pub socket_path: PathBuf,
@@ -31,6 +39,8 @@ pub struct ClawdChatServer {
     ephemeral_rooms: Arc<DashMap<String, Room>>,
     vote_mgr: Arc<VoteManager>,
     rate_limiter: Arc<RateLimiter>,
+    reconnect_mgr: Arc<ReconnectManager>,
+    task_mgr: Arc<TaskManager>,
     api_key: String,
 }
 
@@ -48,6 +58,8 @@ impl ClawdChatServer {
         let ephemeral_rooms = Arc::new(DashMap::new());
         let vote_mgr = Arc::new(VoteManager::new());
         let rate_limiter = Arc::new(RateLimiter::new());
+        let reconnect_mgr = Arc::new(ReconnectManager::new());
+        let task_mgr = Arc::new(TaskManager::new());
         let api_key = auth::load_or_create_key(&config.auth_key_path)?;
 
         log::info!("API key loaded from {:?}", config.auth_key_path);
@@ -60,6 +72,8 @@ impl ClawdChatServer {
             ephemeral_rooms,
             vote_mgr,
             rate_limiter,
+            reconnect_mgr,
+            task_mgr,
             api_key,
         })
     }
@@ -85,6 +99,8 @@ impl ClawdChatServer {
         let uds_api_key = self.api_key.clone();
         let uds_no_auth = self.config.no_auth;
         let uds_rate_limiter = self.rate_limiter.clone();
+        let uds_reconnect_mgr = self.reconnect_mgr.clone();
+        let uds_task_mgr = self.task_mgr.clone();
         let uds_task = tokio::spawn(async move {
             loop {
                 match uds_listener.accept().await {
@@ -96,10 +112,13 @@ impl ClawdChatServer {
                         let vote_mgr = uds_vote_mgr.clone();
                         let api_key = uds_api_key.clone();
                         let rate_limiter = uds_rate_limiter.clone();
+                        let reconnect_mgr = uds_reconnect_mgr.clone();
+                        let task_mgr = uds_task_mgr.clone();
                         tokio::spawn(async move {
                             let _ = connection_loop(
                                 read_half, write_half, broker, store, ephemeral,
                                 vote_mgr, api_key, uds_no_auth, rate_limiter,
+                                reconnect_mgr, task_mgr,
                             ).await;
                         });
                     }
@@ -122,6 +141,8 @@ impl ClawdChatServer {
             let tcp_api_key = self.api_key.clone();
             let tcp_no_auth = self.config.no_auth;
             let tcp_rate_limiter = self.rate_limiter.clone();
+            let tcp_reconnect_mgr = self.reconnect_mgr.clone();
+            let tcp_task_mgr = self.task_mgr.clone();
             Some(tokio::spawn(async move {
                 loop {
                     match tcp_listener.accept().await {
@@ -134,10 +155,13 @@ impl ClawdChatServer {
                             let vote_mgr = tcp_vote_mgr.clone();
                             let api_key = tcp_api_key.clone();
                             let rate_limiter = tcp_rate_limiter.clone();
+                            let reconnect_mgr = tcp_reconnect_mgr.clone();
+                            let task_mgr = tcp_task_mgr.clone();
                             tokio::spawn(async move {
                                 let _ = connection_loop(
                                     read_half, write_half, broker, store, ephemeral,
                                     vote_mgr, api_key, tcp_no_auth, rate_limiter,
+                                    reconnect_mgr, task_mgr,
                                 ).await;
                             });
                         }
@@ -162,6 +186,8 @@ impl ClawdChatServer {
                 rate_limiter: self.rate_limiter.clone(),
                 no_auth: self.config.no_auth,
                 api_key: self.api_key.clone(),
+                reconnect_mgr: self.reconnect_mgr.clone(),
+                task_mgr: self.task_mgr.clone(),
             };
             let router = crate::web::router(app_state);
             let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -207,6 +233,14 @@ impl ClawdChatServer {
     pub fn rate_limiter(&self) -> &Arc<RateLimiter> {
         &self.rate_limiter
     }
+
+    pub fn reconnect_mgr(&self) -> &Arc<ReconnectManager> {
+        &self.reconnect_mgr
+    }
+
+    pub fn task_mgr(&self) -> &Arc<TaskManager> {
+        &self.task_mgr
+    }
 }
 
 impl Drop for ClawdChatServer {
@@ -227,6 +261,8 @@ pub async fn connection_loop<R, W>(
     api_key: String,
     no_auth: bool,
     rate_limiter: Arc<RateLimiter>,
+    reconnect_mgr: Arc<ReconnectManager>,
+    task_mgr: Arc<TaskManager>,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
     R: tokio::io::AsyncRead + Unpin + Send + 'static,
@@ -236,7 +272,7 @@ where
     let mut line = String::new();
 
     // Phase 1: Wait for register command
-    let (agent_id, agent_name, agent_capabilities, session_id, agent_api_key) = loop {
+    let (agent_id, agent_name, agent_capabilities, session_id, agent_api_key, reconnected_rooms) = loop {
         line.clear();
         let n = reader.read_line(&mut line).await?;
         if n == 0 {
@@ -283,31 +319,25 @@ where
         };
 
         // Validate API key
-        let authenticated_key = if no_auth {
-            // No auth mode: accept any key (or empty)
+        let authenticated_key = if no_auth
+            || payload.key == api_key
+            || store.validate_api_key(&payload.key).unwrap_or(false)
+        {
             payload.key.clone()
         } else {
-            // Check against file-based key first
-            if payload.key == api_key {
-                payload.key.clone()
-            } else if store.validate_api_key(&payload.key).unwrap_or(false) {
-                // Check against api_keys table
-                payload.key.clone()
-            } else {
-                let err = Frame::error(
-                    frame.id.as_deref(),
-                    ErrorPayload::new(ErrorCode::Unauthorized, "Invalid API key"),
-                );
-                write_half.write_all(err.to_line()?.as_bytes()).await?;
-                return Ok(()); // Close connection on auth failure
-            }
+            let err = Frame::error(
+                frame.id.as_deref(),
+                ErrorPayload::new(ErrorCode::Unauthorized, "Invalid API key"),
+            );
+            write_half.write_all(err.to_line()?.as_bytes()).await?;
+            return Ok(());
         };
 
         // Check rate limit for agent count (skip in no_auth mode)
         if !no_auth && !authenticated_key.is_empty() {
             let tier = store.get_key_tier(&authenticated_key).unwrap_or_else(|_| "free".to_string());
             let limits = TierLimits::for_tier(&tier);
-            if rate_limiter.check_agent_limit(&authenticated_key, &limits).is_err() {
+            if !rate_limiter.check_agent_limit(&authenticated_key, &limits) {
                 let err = Frame::error(
                     frame.id.as_deref(),
                     ErrorPayload::new(ErrorCode::RateLimitAgents, "Agent limit exceeded for this API key"),
@@ -321,8 +351,18 @@ where
             .agent_id
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
-        // Check if agent_id is already taken
-        if broker.agents.contains_key(&agent_id) {
+        // === Reconnect logic ===
+        // If the agent requests reconnect and we have stashed state, reclaim it.
+        let mut reconnected_rooms: Option<HashSet<String>> = None;
+        let mut missed_messages: Vec<Frame> = Vec::new();
+
+        if payload.reconnect && reconnect_mgr.is_stashed(&agent_id) {
+            if let Some(stashed) = reconnect_mgr.reclaim(&agent_id) {
+                reconnected_rooms = Some(stashed.rooms);
+                missed_messages = stashed.missed_messages;
+            }
+        } else if broker.agents.contains_key(&agent_id) {
+            // Agent is still "connected" (stale) — reject
             let err = Frame::error(
                 frame.id.as_deref(),
                 ErrorPayload::new(ErrorCode::AgentIdTaken, "Agent ID already in use"),
@@ -331,15 +371,28 @@ where
             continue;
         }
 
-        // Send OK before setting up the channel (so it goes directly on the socket)
-        let ok = Frame::ok(
-            frame.id.as_deref(),
-            serde_json::json!({
-                "agent_id": agent_id,
-                "name": payload.name,
-            }),
-        );
+        // Build the OK response
+        let mut ok_payload = serde_json::json!({
+            "agent_id": agent_id,
+            "name": payload.name,
+        });
+
+        if let Some(ref rooms) = reconnected_rooms {
+            let room_list: Vec<&String> = rooms.iter().collect();
+            ok_payload["reconnected"] = serde_json::json!(true);
+            ok_payload["rooms"] = serde_json::json!(room_list);
+            ok_payload["missed_messages"] = serde_json::json!(missed_messages.len());
+        }
+
+        let ok = Frame::ok(frame.id.as_deref(), ok_payload);
         write_half.write_all(ok.to_line()?.as_bytes()).await?;
+
+        // Replay missed messages directly to the socket (before channel setup)
+        for msg in &missed_messages {
+            if let Ok(msg_line) = msg.to_line() {
+                write_half.write_all(msg_line.as_bytes()).await?;
+            }
+        }
 
         // Track agent in rate limiter
         if !authenticated_key.is_empty() {
@@ -347,10 +400,11 @@ where
         }
 
         log::info!(
-            "Agent registered: {} ({}) capabilities={:?}",
+            "Agent registered: {} ({}) capabilities={:?}{}",
             payload.name,
             agent_id,
-            payload.capabilities
+            payload.capabilities,
+            if reconnected_rooms.is_some() { " [RECONNECTED]" } else { "" },
         );
 
         // Record session
@@ -362,10 +416,10 @@ where
             &payload.capabilities,
         );
 
-        break (agent_id, payload.name, payload.capabilities, session_id, authenticated_key);
+        break (agent_id, payload.name, payload.capabilities, session_id, authenticated_key, reconnected_rooms);
     };
 
-    // Phase 2: Set up channel + task pair (the chat-notifier pattern)
+    // Phase 2: Set up channel + task pair
     let (tx, mut rx) = mpsc::unbounded_channel::<Frame>();
 
     // Send task: drains channel -> writes to socket
@@ -391,64 +445,132 @@ where
         connected_at: Some(chrono::Utc::now()),
     };
 
-    // Store the connection (receive_task placeholder - we'll update it)
+    // Store the connection
     let conn = AgentConnection::new(
         agent_info,
         session_id.clone(),
         tx.clone(),
         send_task,
-        // Placeholder task that immediately completes
         tokio::spawn(async {}),
         agent_api_key.clone(),
     );
     broker.agents.insert(agent_id.clone(), conn);
 
-    // Phase 3: Read and process frames
+    // Restore room memberships if reconnecting
+    if let Some(rooms) = reconnected_rooms {
+        for room_id in &rooms {
+            broker.join_room(&agent_id, room_id);
+            if let Some(mut agent) = broker.agents.get_mut(&agent_id) {
+                agent.rooms.insert(room_id.clone());
+            }
+
+            // Broadcast rejoin event
+            let event = Frame::event(
+                FrameType::AgentJoined,
+                serde_json::json!({
+                    "room_id": room_id,
+                    "agent": {
+                        "agent_id": agent_id,
+                        "name": agent_name,
+                    },
+                    "reconnected": true,
+                }),
+            );
+            broker.broadcast_to_room(room_id, &agent_id, &event);
+        }
+    }
+
+    // Phase 3: Read and process frames (with heartbeat)
+    let heartbeat_tx = tx.clone();
+    let heartbeat_agent_id = agent_id.clone();
+    let heartbeat_broker = broker.clone();
+    let heartbeat_task = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
+        loop {
+            interval.tick().await;
+            // Only send heartbeat if the agent is still connected
+            if !heartbeat_broker.agents.contains_key(&heartbeat_agent_id) {
+                break;
+            }
+            let ping = Frame {
+                id: Some(uuid::Uuid::new_v4().to_string()),
+                reply_to: None,
+                frame_type: FrameType::Ping,
+                payload: serde_json::json!({"heartbeat": true}),
+            };
+            if heartbeat_tx.send(ping).is_err() {
+                break;
+            }
+        }
+    });
+
+    let mut last_activity = std::time::Instant::now();
+
     loop {
         line.clear();
-        let n = match reader.read_line(&mut line).await {
-            Ok(n) => n,
-            Err(e) => {
+        let read_result = tokio::time::timeout(
+            Duration::from_secs(HEARTBEAT_TIMEOUT_SECS),
+            reader.read_line(&mut line),
+        ).await;
+
+        match read_result {
+            Ok(Ok(0)) => break, // Connection closed
+            Ok(Ok(_)) => {
+                last_activity = std::time::Instant::now();
+
+                let frame = match Frame::from_line(&line) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        let err = Frame::error(
+                            None,
+                            ErrorPayload::new(ErrorCode::InvalidPayload, e.to_string()),
+                        );
+                        let _ = tx.send(err);
+                        continue;
+                    }
+                };
+
+                // Pong responses don't need processing
+                if frame.frame_type == FrameType::Pong {
+                    continue;
+                }
+
+                let response = handler::handle_frame(
+                    frame,
+                    &agent_id,
+                    &agent_name,
+                    &broker,
+                    &store,
+                    &ephemeral_rooms,
+                    &vote_mgr,
+                    &agent_api_key,
+                    &rate_limiter,
+                    no_auth,
+                    &task_mgr,
+                )
+                .await;
+                let _ = tx.send(response);
+            }
+            Ok(Err(e)) => {
                 log::warn!(
                     "Read error for {} ({}), treating as disconnect: {}",
-                    agent_name,
-                    agent_id,
-                    e
+                    agent_name, agent_id, e
                 );
                 break;
             }
-        };
-        if n == 0 {
-            break; // Connection closed
-        }
-
-        let frame = match Frame::from_line(&line) {
-            Ok(f) => f,
-            Err(e) => {
-                let err = Frame::error(
-                    None,
-                    ErrorPayload::new(ErrorCode::InvalidPayload, e.to_string()),
+            Err(_) => {
+                // Timeout — no data received within HEARTBEAT_TIMEOUT_SECS
+                log::warn!(
+                    "Heartbeat timeout for {} ({}) — last activity {:.0}s ago",
+                    agent_name, agent_id, last_activity.elapsed().as_secs_f64()
                 );
-                let _ = tx.send(err);
-                continue;
+                break;
             }
-        };
-
-        let response = handler::handle_frame(
-            frame,
-            &agent_id,
-            &agent_name,
-            &broker,
-            &store,
-            &ephemeral_rooms,
-            &vote_mgr,
-            &agent_api_key,
-            &rate_limiter,
-            no_auth,
-        )
-        .await;
-        let _ = tx.send(response);
+        }
     }
+
+    // Stop heartbeat task
+    heartbeat_task.abort();
 
     // Phase 4: Cleanup on disconnect
     log::info!("Agent disconnected: {} ({})", agent_name, agent_id);
@@ -456,6 +578,22 @@ where
     // Remove from rate limiter
     if !agent_api_key.is_empty() {
         rate_limiter.remove_agent(&agent_api_key);
+    }
+
+    // Collect room memberships BEFORE leaving them (for stash)
+    let agent_rooms: HashSet<String> = broker.agents.get(&agent_id)
+        .map(|a| a.rooms.clone())
+        .unwrap_or_default();
+
+    // Stash for reconnect (only for permanent rooms — don't stash ephemeral-only agents)
+    let has_permanent_rooms = agent_rooms.iter().any(|r| !ephemeral_rooms.contains_key(r));
+    if has_permanent_rooms {
+        reconnect_mgr.stash(
+            agent_id.clone(),
+            agent_name.clone(),
+            agent_api_key.clone(),
+            agent_rooms.clone(),
+        );
     }
 
     // Leave all rooms and clean up ephemeral rooms
@@ -470,6 +608,13 @@ where
             }),
         );
         broker.broadcast_to_room_all(room_id, &event);
+
+        // Buffer the leave event for stashed agents in this room
+        for stashed_id in reconnect_mgr.stashed_members_of_room(room_id) {
+            if stashed_id != agent_id {
+                reconnect_mgr.buffer_message(&stashed_id, event.clone());
+            }
+        }
 
         // Destroy empty ephemeral rooms
         if *now_empty {

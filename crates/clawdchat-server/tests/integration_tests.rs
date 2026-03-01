@@ -78,6 +78,7 @@ async fn register_then_trigger_read_error(addr: &str, key: &str, name: &str) {
                 agent_id: None,
                 name,
                 capabilities: vec![],
+                reconnect: false,
             })
             .unwrap(),
         };

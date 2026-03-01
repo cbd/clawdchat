@@ -73,16 +73,12 @@ impl RateLimiter {
         self.usage.get(api_key).unwrap()
     }
 
-    pub fn check_agent_limit(&self, api_key: &str, limits: &TierLimits) -> Result<(), ()> {
+    pub fn check_agent_limit(&self, api_key: &str, limits: &TierLimits) -> bool {
         let usage = self.get_or_create(api_key);
-        if usage.agent_count.load(Ordering::Relaxed) >= limits.max_agents {
-            Err(())
-        } else {
-            Ok(())
-        }
+        usage.agent_count.load(Ordering::Relaxed) < limits.max_agents
     }
 
-    pub fn check_message_rate(&self, api_key: &str, limits: &TierLimits) -> Result<(), ()> {
+    pub fn check_message_rate(&self, api_key: &str, limits: &TierLimits) -> bool {
         let usage = self.get_or_create(api_key);
         let mut window = usage.msg_window_start.lock().unwrap();
 
@@ -92,20 +88,12 @@ impl RateLimiter {
             usage.msg_count.store(0, Ordering::Relaxed);
         }
 
-        if usage.msg_count.load(Ordering::Relaxed) >= limits.max_messages_per_minute {
-            Err(())
-        } else {
-            Ok(())
-        }
+        usage.msg_count.load(Ordering::Relaxed) < limits.max_messages_per_minute
     }
 
-    pub fn check_room_limit(&self, api_key: &str, limits: &TierLimits) -> Result<(), ()> {
+    pub fn check_room_limit(&self, api_key: &str, limits: &TierLimits) -> bool {
         let usage = self.get_or_create(api_key);
-        if usage.room_count.load(Ordering::Relaxed) >= limits.max_rooms {
-            Err(())
-        } else {
-            Ok(())
-        }
+        usage.room_count.load(Ordering::Relaxed) < limits.max_rooms
     }
 
     pub fn increment_message(&self, api_key: &str) {

@@ -14,8 +14,10 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
 use crate::broker::Broker;
 use crate::rate_limit::RateLimiter;
+use crate::reconnect::ReconnectManager;
 use crate::server::connection_loop;
 use crate::store::Store;
+use crate::tasks::TaskManager;
 use crate::voting::VoteManager;
 
 #[derive(Embed)]
@@ -32,6 +34,8 @@ pub struct AppState {
     pub rate_limiter: Arc<RateLimiter>,
     pub no_auth: bool,
     pub api_key: String,
+    pub reconnect_mgr: Arc<ReconnectManager>,
+    pub task_mgr: Arc<TaskManager>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -74,10 +78,10 @@ async fn handle_ws_connection(ws: WebSocket, state: AppState) {
                     if client_write.write_all(text_bytes).await.is_err() {
                         break;
                     }
-                    if !text_bytes.ends_with(b"\n") {
-                        if client_write.write_all(b"\n").await.is_err() {
-                            break;
-                        }
+                    if !text_bytes.ends_with(b"\n")
+                        && client_write.write_all(b"\n").await.is_err()
+                    {
+                        break;
                     }
                 }
                 Message::Close(_) => break,
@@ -115,6 +119,8 @@ async fn handle_ws_connection(ws: WebSocket, state: AppState) {
     let rate_limiter = state.rate_limiter;
     let api_key = state.api_key;
     let no_auth = state.no_auth;
+    let reconnect_mgr = state.reconnect_mgr;
+    let task_mgr = state.task_mgr;
 
     let connection_task = tokio::spawn(async move {
         let _ = connection_loop(
@@ -127,6 +133,8 @@ async fn handle_ws_connection(ws: WebSocket, state: AppState) {
             api_key,
             no_auth,
             rate_limiter,
+            reconnect_mgr,
+            task_mgr,
         )
         .await;
     });

@@ -100,6 +100,11 @@ pub enum FrameType {
     DeclineElection,
     Decision,
 
+    // Task commands (client -> server)
+    AssignTask,
+    UpdateTask,
+    ListTasks,
+
     // Server -> Client responses/events
     Ok,
     Error,
@@ -125,6 +130,11 @@ pub enum FrameType {
     LeaderElected,
     LeaderCleared,
     DecisionMade,
+
+    // Task events (server -> client)
+    TaskAssigned,
+    TaskUpdated,
+    TaskList,
 }
 
 #[cfg(test)]

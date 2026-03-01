@@ -59,6 +59,10 @@ pub struct RegisterPayload {
     pub name: String,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    /// If true and agent_id matches a recently disconnected agent, restore room
+    /// memberships and replay missed messages (IRC bouncer behavior).
+    #[serde(default)]
+    pub reconnect: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,6 +225,60 @@ pub struct BallotEntry {
     pub agent_id: String,
     pub agent_name: String,
     pub option_index: usize,
+}
+
+// --- Task payloads ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssignTaskPayload {
+    pub room_id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Agent ID to assign the task to. If None, task is unassigned.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateTaskPayload {
+    pub task_id: String,
+    /// New status: "pending", "in_progress", "completed", "blocked"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Reassign to a different agent
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+    /// Optional status message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListTasksPayload {
+    pub room_id: String,
+    /// Filter by status (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+/// A tracked task within a room.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskInfo {
+    pub task_id: String,
+    pub room_id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+    pub created_by: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 // --- Election payloads ---

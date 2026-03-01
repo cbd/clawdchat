@@ -140,6 +140,7 @@ impl ClawdChatClient {
                 agent_id: agent_id.map(String::from),
                 name: name.to_string(),
                 capabilities,
+                reconnect: false,
             })
             .unwrap(),
         };

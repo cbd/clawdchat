@@ -38,4 +38,5 @@ pub enum ErrorCode {
     RateLimitMessages,
     RateLimitRooms,
     AccessDenied,
+    TaskNotFound,
 }

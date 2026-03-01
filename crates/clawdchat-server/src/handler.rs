@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::broker::Broker;
 use crate::rate_limit::{RateLimiter, TierLimits};
 use crate::store::Store;
+use crate::tasks::TaskManager;
 use crate::voting::VoteManager;
 
 /// Processes a single frame from a registered agent and returns a response frame.
@@ -20,6 +21,7 @@ pub async fn handle_frame(
     agent_api_key: &str,
     rate_limiter: &Arc<RateLimiter>,
     no_auth: bool,
+    task_mgr: &Arc<TaskManager>,
 ) -> Frame {
     let req_id = frame.id.as_deref();
 
@@ -133,6 +135,17 @@ pub async fn handle_frame(
             .await
         }
 
+        // Tasks
+        FrameType::AssignTask => {
+            handle_assign_task(req_id, frame.payload, agent_id, broker, task_mgr).await
+        }
+        FrameType::UpdateTask => {
+            handle_update_task(req_id, frame.payload, agent_id, broker, task_mgr).await
+        }
+        FrameType::ListTasks => {
+            handle_list_tasks(req_id, frame.payload, task_mgr).await
+        }
+
         _ => Frame::error(
             req_id,
             ErrorPayload::new(ErrorCode::InvalidPayload, "Unknown command"),
@@ -165,7 +178,7 @@ async fn handle_create_room(
     if !no_auth && !agent_api_key.is_empty() {
         let tier = store.get_key_tier(agent_api_key).unwrap_or_else(|_| "free".to_string());
         let limits = TierLimits::for_tier(&tier);
-        if rate_limiter.check_room_limit(agent_api_key, &limits).is_err() {
+        if !rate_limiter.check_room_limit(agent_api_key, &limits) {
             return Frame::error(
                 req_id,
                 ErrorPayload::new(ErrorCode::RateLimitRooms, "Room limit exceeded for this API key"),
@@ -423,7 +436,7 @@ async fn handle_send_message(
     if !no_auth && !agent_api_key.is_empty() {
         let tier = store.get_key_tier(agent_api_key).unwrap_or_else(|_| "free".to_string());
         let limits = TierLimits::for_tier(&tier);
-        if rate_limiter.check_message_rate(agent_api_key, &limits).is_err() {
+        if !rate_limiter.check_message_rate(agent_api_key, &limits) {
             return Frame::error(
                 req_id,
                 ErrorPayload::new(ErrorCode::RateLimitMessages, "Message rate limit exceeded"),
@@ -1248,4 +1261,123 @@ async fn handle_decision(
             "room_id": p.room_id,
         }),
     )
+}
+
+// --- Task handlers ---
+
+async fn handle_assign_task(
+    req_id: Option<&str>,
+    payload: serde_json::Value,
+    agent_id: &str,
+    broker: &Arc<Broker>,
+    task_mgr: &Arc<TaskManager>,
+) -> Frame {
+    let p: AssignTaskPayload = match serde_json::from_value(payload) {
+        Ok(p) => p,
+        Err(e) => {
+            return Frame::error(
+                req_id,
+                ErrorPayload::new(ErrorCode::InvalidPayload, e.to_string()),
+            )
+        }
+    };
+
+    if !broker.is_agent_in_room(agent_id, &p.room_id) {
+        return Frame::error(
+            req_id,
+            ErrorPayload::new(ErrorCode::NotInRoom, "Must be in room to assign tasks"),
+        );
+    }
+
+    let task_id = uuid::Uuid::new_v4().to_string();
+    let task = task_mgr.create_task(
+        task_id,
+        p.room_id.clone(),
+        p.title,
+        p.description,
+        p.assignee,
+        agent_id.to_string(),
+    );
+
+    // Broadcast to room
+    let event = Frame::event(FrameType::TaskAssigned, serde_json::to_value(&task).unwrap());
+    broker.broadcast_to_room_all(&p.room_id, &event);
+
+    Frame::ok(req_id, serde_json::to_value(&task).unwrap())
+}
+
+async fn handle_update_task(
+    req_id: Option<&str>,
+    payload: serde_json::Value,
+    agent_id: &str,
+    broker: &Arc<Broker>,
+    task_mgr: &Arc<TaskManager>,
+) -> Frame {
+    let p: UpdateTaskPayload = match serde_json::from_value(payload) {
+        Ok(p) => p,
+        Err(e) => {
+            return Frame::error(
+                req_id,
+                ErrorPayload::new(ErrorCode::InvalidPayload, e.to_string()),
+            )
+        }
+    };
+
+    // Get the task to find its room
+    let room_id = match task_mgr.get_task(&p.task_id) {
+        Some(t) => t.room_id,
+        None => {
+            return Frame::error(
+                req_id,
+                ErrorPayload::new(ErrorCode::TaskNotFound, "Task not found"),
+            )
+        }
+    };
+
+    if !broker.is_agent_in_room(agent_id, &room_id) {
+        return Frame::error(
+            req_id,
+            ErrorPayload::new(ErrorCode::NotInRoom, "Must be in room to update tasks"),
+        );
+    }
+
+    match task_mgr.update_task(&p.task_id, p.status, p.assignee, p.note) {
+        Some(task) => {
+            let event = Frame::event(FrameType::TaskUpdated, serde_json::to_value(&task).unwrap());
+            broker.broadcast_to_room_all(&room_id, &event);
+            Frame::ok(req_id, serde_json::to_value(&task).unwrap())
+        }
+        None => Frame::error(
+            req_id,
+            ErrorPayload::new(ErrorCode::TaskNotFound, "Task not found"),
+        ),
+    }
+}
+
+async fn handle_list_tasks(
+    req_id: Option<&str>,
+    payload: serde_json::Value,
+    task_mgr: &Arc<TaskManager>,
+) -> Frame {
+    let p: ListTasksPayload = match serde_json::from_value(payload) {
+        Ok(p) => p,
+        Err(e) => {
+            return Frame::error(
+                req_id,
+                ErrorPayload::new(ErrorCode::InvalidPayload, e.to_string()),
+            )
+        }
+    };
+
+    let tasks = task_mgr.list_tasks(&p.room_id, p.status.as_deref());
+
+    Frame {
+        id: Some(uuid::Uuid::new_v4().to_string()),
+        reply_to: req_id.map(String::from),
+        frame_type: FrameType::TaskList,
+        payload: serde_json::json!({
+            "room_id": p.room_id,
+            "tasks": tasks,
+        }),
+    }
 }
