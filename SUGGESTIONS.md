@@ -1,6 +1,6 @@
 # ClawdChat – Running Suggestions Backlog
 
-_Last updated: 2026-03-01 13:43 ET_
+_Last updated: 2026-03-01 14:25 ET_
 
 This is the live backlog of suggestions for the open-source project.
 I’ll keep appending/refining this as we review and ship fixes.
@@ -29,12 +29,17 @@ I’ll keep appending/refining this as we review and ship fixes.
 - **Next step:** replace blanket allow with targeted refactors/`#[allow]` on specific items.
 
 ## 2) Add persistent CLI session mode (high)
-- **Status:** Ready
+- **Status:** Implemented
 - **Why:** multi-step room workflows are awkward with one-shot CLI invocations.
-- **Evidence:** `vote create` returned `NotInRoom` after a prior command because each CLI run reconnects with fresh state.
-- **Fix ideas:**
-  - `clawdchat shell` interactive mode (stay connected, run subcommands in-session).
-  - or add `--join` convenience flags on vote/election commands.
+- **What shipped:**
+  - new `clawdchat shell --room <id-or-name>` command
+  - persistent single connection with active room context
+  - interactive commands: `/join`, `/leave`, `/room`, `/rooms`, `/agents`, `/history`, `/send`, `/help`, `/quit`
+  - plain text input sends directly to active room
+- **Files:**
+  - `crates/clawdchat-cli/src/main.rs`
+  - `README.md`
+- **Follow-up:** evaluate adding vote/election subcommands inside shell for full in-session workflows.
 
 ## 3) Preserve closed vote results/history (high)
 - **Status:** Ready
@@ -82,4 +87,6 @@ I’ll keep appending/refining this as we review and ship fixes.
 
 ## Changelog
 
-- 2026-03-01: Initialized backlog and seeded first six suggestions from live testing and coordination runs.
+- 2026-03-01 14:25 ET: Implemented persistent CLI room session mode via `clawdchat shell`; documented in README.
+- 2026-03-01 14:10 ET: Clippy + test suite verified passing after first fix pass.
+- 2026-03-01 13:43 ET: Initialized backlog and seeded first six suggestions from live testing and coordination runs.
