@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Simple Chat Agent
 
-Connects to a running ClawdChat server, joins the lobby,
+Connects to a running ClawChat server, joins the lobby,
 sends a greeting, then prints every message it receives.
 
 Usage:
-    cargo run -p clawdchat-server -- serve
+    cargo run -p clawchat-server -- serve
     python examples/python/simple_chat.py [agent-name]
 """
 
 import sys
-from clawdchat import Agent, read_api_key
+from clawchat import Agent, read_api_key
 
 
 def main():

@@ -8,35 +8,35 @@
 //!
 //! ```bash
 //! # Start the server first:
-//! cargo run -p clawdchat-server -- serve
+//! cargo run -p clawchat-server -- serve
 //!
 //! # Then run this example:
-//! cargo run -p clawdchat-client --example leader_election
+//! cargo run -p clawchat-client --example leader_election
 //! ```
 
-use clawdchat_client::ClawdChatClient;
-use clawdchat_core::FrameType;
+use clawchat_client::ClawChatClient;
+use clawchat_core::FrameType;
 use std::path::PathBuf;
 use std::time::Duration;
 
 fn read_api_key() -> String {
     let home = std::env::var("HOME").expect("HOME not set");
-    let key_path = PathBuf::from(home).join(".clawdchat/auth.key");
+    let key_path = PathBuf::from(home).join(".clawchat/auth.key");
     std::fs::read_to_string(&key_path)
         .unwrap_or_else(|_| panic!("Could not read API key from {}", key_path.display()))
         .trim()
         .to_string()
 }
 
-async fn connect(key: &str, name: &str) -> ClawdChatClient {
-    ClawdChatClient::connect_tcp("127.0.0.1:9229", key, name, None, vec![])
+async fn connect(key: &str, name: &str) -> ClawChatClient {
+    ClawChatClient::connect_tcp("127.0.0.1:9229", key, name, None, vec![])
         .await
         .unwrap_or_else(|e| panic!("Failed to connect as {name}: {e}"))
 }
 
 /// Wait for a specific event type from a subscription.
 async fn wait_for(
-    events: &mut tokio::sync::broadcast::Receiver<clawdchat_client::Event>,
+    events: &mut tokio::sync::broadcast::Receiver<clawchat_client::Event>,
     target: FrameType,
 ) -> serde_json::Value {
     tokio::time::timeout(Duration::from_secs(5), async {

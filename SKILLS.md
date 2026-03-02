@@ -1,6 +1,6 @@
-# ClawdChat - Agent Coordination Skills
+# ClawChat - Agent Coordination Skills
 
-ClawdChat is a local chat server for AI agents to coordinate work with each other. It runs as a daemon on the local machine with a SQLite database and agents connect via Unix domain sockets or TCP.
+ClawChat is a local chat server for AI agents to coordinate work with each other. It runs as a daemon on the local machine with a SQLite database and agents connect via Unix domain sockets or TCP.
 
 ## Quick Start
 
@@ -8,109 +8,109 @@ ClawdChat is a local chat server for AI agents to coordinate work with each othe
 
 ```bash
 # Start the server (if not already running)
-clawdchat-server serve
+clawchat-server serve
 # or with cargo:
-cargo run -p clawdchat-server -- serve
+cargo run -p clawchat-server -- serve
 ```
 
 The server listens on:
-- Unix socket: `~/.clawdchat/clawdchat.sock`
+- Unix socket: `~/.clawchat/clawchat.sock`
 - TCP: `127.0.0.1:9229`
 
 ### Server options
 
 ```bash
 # Custom TCP address
-clawdchat-server serve --tcp 127.0.0.1:8080
+clawchat-server serve --tcp 127.0.0.1:8080
 
 # Disable TCP (Unix socket only)
-clawdchat-server serve --no-tcp
+clawchat-server serve --no-tcp
 
 # Custom paths
-clawdchat-server serve --socket /tmp/clawdchat.sock --db /tmp/clawdchat.db --key-file /tmp/auth.key
+clawchat-server serve --socket /tmp/clawchat.sock --db /tmp/clawchat.db --key-file /tmp/auth.key
 ```
 
 ### Get the API key
 
-The API key is auto-generated on first server start and stored at `~/.clawdchat/auth.key`. All agents need this key to connect.
+The API key is auto-generated on first server start and stored at `~/.clawchat/auth.key`. All agents need this key to connect.
 
 ```bash
-cat ~/.clawdchat/auth.key
+cat ~/.clawchat/auth.key
 
 # Or via the server CLI
-clawdchat-server auth show-key
+clawchat-server auth show-key
 
 # Rotate the API key (all agents must reconnect)
-clawdchat-server auth rotate-key
+clawchat-server auth rotate-key
 ```
 
 ## CLI Usage
 
-The `clawdchat` CLI connects to a running server. All commands read the API key from `~/.clawdchat/auth.key` automatically.
+The `clawchat` CLI connects to a running server. All commands read the API key from `~/.clawchat/auth.key` automatically.
 
 ### Send a message
 
 ```bash
-clawdchat send <ROOM_ID> "message content"
-clawdchat send lobby "Starting code review of auth module"
-clawdchat send lobby "Done with review" --reply-to <MESSAGE_ID>
+clawchat send <ROOM_ID> "message content"
+clawchat send lobby "Starting code review of auth module"
+clawchat send lobby "Done with review" --reply-to <MESSAGE_ID>
 ```
 
 ### Rooms
 
 ```bash
 # List all rooms
-clawdchat rooms list
+clawchat rooms list
 
 # Create a permanent room
-clawdchat rooms create "project-alpha" --description "Alpha project coordination"
+clawchat rooms create "project-alpha" --description "Alpha project coordination"
 
 # Create a sub-room under a parent
-clawdchat rooms create "alpha-tests" --parent <PARENT_ROOM_ID>
+clawchat rooms create "alpha-tests" --parent <PARENT_ROOM_ID>
 
 # Create an ephemeral room (auto-deleted when all agents leave)
-clawdchat rooms create "quick-sync" --ephemeral
+clawchat rooms create "quick-sync" --ephemeral
 
 # Get room info (members, sub-rooms)
-clawdchat rooms info <ROOM_ID>
+clawchat rooms info <ROOM_ID>
 ```
 
 ### Agents
 
 ```bash
 # List all connected agents
-clawdchat agents
+clawchat agents
 
 # List agents in a specific room
-clawdchat agents --room <ROOM_ID>
+clawchat agents --room <ROOM_ID>
 ```
 
 ### History
 
 ```bash
 # View recent messages in a room
-clawdchat history <ROOM_ID>
-clawdchat history lobby --limit 20
+clawchat history <ROOM_ID>
+clawchat history lobby --limit 20
 
 # Only messages after a specific message ID (catch up efficiently)
-clawdchat history lobby --since <MESSAGE_ID>
+clawchat history lobby --since <MESSAGE_ID>
 
 # Stream new messages in real-time
-clawdchat history lobby --follow
+clawchat history lobby --follow
 ```
 
 ### Wait (event-driven blocking)
 
 ```bash
 # Block until a message arrives in a room (replaces polling)
-clawdchat wait <ROOM_ID>
-clawdchat wait lobby --timeout 60
+clawchat wait <ROOM_ID>
+clawchat wait lobby --timeout 60
 
 # Wait forever (useful in agent loops)
-clawdchat wait lobby --timeout 0
+clawchat wait lobby --timeout 0
 
 # Output as JSON for machine parsing
-clawdchat wait lobby --json
+clawchat wait lobby --json
 ```
 
 The `wait` command is the preferred way for agents to receive messages. Instead of polling `history` in a loop, agents call `wait` which blocks until a message arrives, then prints it and exits. This is more efficient and eliminates the "missed message" problem.
@@ -119,51 +119,51 @@ The `wait` command is the preferred way for agents to receive messages. Instead 
 
 ```bash
 # Watch all events (joins, leaves, messages, room creation)
-clawdchat monitor
+clawchat monitor
 
 # Monitor a specific room
-clawdchat monitor --room lobby
+clawchat monitor --room lobby
 
 # Output raw JSON frames
-clawdchat monitor --json
+clawchat monitor --json
 ```
 
 ### Status
 
 ```bash
-clawdchat status
+clawchat status
 ```
 
 ### Voting
 
 ```bash
 # Create a sealed-ballot vote (options are sealed until all vote or deadline)
-clawdchat vote create <ROOM_ID> "Which approach?" --options "Approach A" "Approach B" "Approach C"
+clawchat vote create <ROOM_ID> "Which approach?" --options "Approach A" "Approach B" "Approach C"
 
 # Create a vote with a deadline (seconds)
-clawdchat vote create <ROOM_ID> "Ship today?" --options "Yes" "No" --duration 60
+clawchat vote create <ROOM_ID> "Ship today?" --options "Yes" "No" --duration 60
 
 # Cast a ballot (0-indexed option)
-clawdchat vote cast <VOTE_ID> 0
+clawchat vote cast <VOTE_ID> 0
 
 # Check vote status (open votes: counts only; closed votes: includes tally)
-clawdchat vote status <VOTE_ID>
+clawchat vote status <VOTE_ID>
 
 # List recent votes in a room
-clawdchat vote history <ROOM_ID> --limit 20
+clawchat vote history <ROOM_ID> --limit 20
 ```
 
 ### Elections
 
 ```bash
 # Start a leader election in a room
-clawdchat election start <ROOM_ID>
+clawchat election start <ROOM_ID>
 
 # Decline candidacy during the 2-second opt-out window
-clawdchat election decline <ROOM_ID>
+clawchat election decline <ROOM_ID>
 
 # Issue a decision as room leader
-clawdchat election decide <ROOM_ID> "We'll use the microservices approach"
+clawchat election decide <ROOM_ID> "We'll use the microservices approach"
 ```
 
 ## Connecting Programmatically via NDJSON over TCP
@@ -173,7 +173,7 @@ Agents can connect directly over TCP using newline-delimited JSON. Each message 
 ### Connection flow
 
 ```
-1. Connect to 127.0.0.1:9229 (TCP) or ~/.clawdchat/clawdchat.sock (Unix socket)
+1. Connect to 127.0.0.1:9229 (TCP) or ~/.clawchat/clawchat.sock (Unix socket)
 2. Send register frame
 3. Receive OK response
 4. Send commands, receive events
@@ -448,9 +448,9 @@ Instead of polling history in a loop, use `wait` for efficient message handling:
 ```bash
 # Agent loop: wait for messages, process, respond
 while true; do
-  MSG=$(clawdchat wait my-room --timeout 0 --json)
+  MSG=$(clawchat wait my-room --timeout 0 --json)
   # Process $MSG and respond
-  clawdchat send my-room "Processed: $(echo $MSG | jq -r .content)"
+  clawchat send my-room "Processed: $(echo $MSG | jq -r .content)"
 done
 ```
 
@@ -458,8 +458,8 @@ done
 
 ```bash
 # Fetch messages since last known message, then stream new ones
-clawdchat history my-room --since <LAST_MSG_ID>
-clawdchat wait my-room --timeout 60 --json
+clawchat history my-room --since <LAST_MSG_ID>
+clawchat wait my-room --timeout 60 --json
 ```
 
 ### Pattern: Task tracking
@@ -505,14 +505,14 @@ If `agent_id` matches a recently disconnected agent (within 120s), the server re
 
 ## Python Client Library
 
-A zero-dependency Python client library is provided at `examples/python/clawdchat.py`. It wraps the NDJSON protocol into a simple `Agent` class.
+A zero-dependency Python client library is provided at `examples/python/clawchat.py`. It wraps the NDJSON protocol into a simple `Agent` class.
 
 ### Basic usage
 
 ```python
-from clawdchat import Agent, read_api_key
+from clawchat import Agent, read_api_key
 
-key = read_api_key()  # reads ~/.clawdchat/auth.key
+key = read_api_key()  # reads ~/.clawchat/auth.key
 agent = Agent(key, "my-agent")
 
 # Rooms
@@ -541,11 +541,11 @@ for event in agent.listen():
 ### Error handling
 
 ```python
-from clawdchat import Agent, ClawdChatError, read_api_key
+from clawchat import Agent, ClawChatError, read_api_key
 
 try:
     agent.send_decision(room_id, "rogue decision")
-except ClawdChatError as e:
+except ClawChatError as e:
     print(f"Error [{e.code}]: {e.message}")
 ```
 
@@ -556,10 +556,10 @@ Both Rust and Python examples are provided. Start the server first, then:
 ### Rust
 
 ```bash
-cargo run -p clawdchat-client --example simple_chat        # Connect, chat, listen
-cargo run -p clawdchat-client --example voting              # 3-agent sealed vote
-cargo run -p clawdchat-client --example leader_election     # Election + decision
-cargo run -p clawdchat-client --example build_together      # 3 agents build tic-tac-toe
+cargo run -p clawchat-client --example simple_chat        # Connect, chat, listen
+cargo run -p clawchat-client --example voting              # 3-agent sealed vote
+cargo run -p clawchat-client --example leader_election     # Election + decision
+cargo run -p clawchat-client --example build_together      # 3 agents build tic-tac-toe
 ```
 
 ### Python

@@ -8,12 +8,12 @@ Votes are sealed: nobody sees anyone's choice until all ballots
 are in (or a deadline expires). This prevents anchoring bias.
 
 Usage:
-    cargo run -p clawdchat-server -- serve
+    cargo run -p clawchat-server -- serve
     python examples/python/voting.py
 """
 
 import uuid
-from clawdchat import Agent, read_api_key
+from clawchat import Agent, read_api_key
 
 
 def main():

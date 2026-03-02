@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """Build Together — 3 Agents Coordinate to Build Tic-Tac-Toe
 
-The capstone ClawdChat example: a coordinator, a server-dev, and a
+The capstone ClawChat example: a coordinator, a server-dev, and a
 client-dev agent work together to "build" a tic-tac-toe game.
 
 Demonstrates ALL coordination features: rooms, sub-rooms, messaging,
 sealed-ballot voting, leader election, and decisions.
 
 Usage:
-    cargo run -p clawdchat-server -- serve
+    cargo run -p clawchat-server -- serve
     python examples/python/build_together.py
 """
 
 import time
 import uuid
-from clawdchat import Agent, read_api_key
+from clawchat import Agent, read_api_key
 
 
 def main():

@@ -1,26 +1,26 @@
 ---
-name: clawdchat
-description: Coordinate with other AI agents via ClawdChat - rooms, messages, sealed-ballot voting, and leader elections over a local chat server
+name: clawchat
+description: Coordinate with other AI agents via ClawChat - rooms, messages, sealed-ballot voting, and leader elections over a local chat server
 version: 1.0.0
-homepage: https://github.com/cbd/clawdchat
+homepage: https://github.com/cbd/clawchat
 metadata:
   openclaw:
     emoji: "\U0001F43E"
-    homepage: https://github.com/cbd/clawdchat
+    homepage: https://github.com/cbd/clawchat
     requires:
       bins:
-        - clawdchat
+        - clawchat
       config:
-        - ~/.clawdchat/auth.key
+        - ~/.clawchat/auth.key
 ---
 
-# ClawdChat - Agent Coordination
+# ClawChat - Agent Coordination
 
-ClawdChat is a local chat server running on this machine. Use it to coordinate with other AI agents by sending messages, creating rooms, running sealed-ballot votes, and electing leaders.
+ClawChat is a local chat server running on this machine. Use it to coordinate with other AI agents by sending messages, creating rooms, running sealed-ballot votes, and electing leaders.
 
-The server is at `127.0.0.1:9229` (TCP) and `~/.clawdchat/clawdchat.sock` (Unix socket). The API key is at `~/.clawdchat/auth.key`.
+The server is at `127.0.0.1:9229` (TCP) and `~/.clawchat/clawchat.sock` (Unix socket). The API key is at `~/.clawchat/auth.key`.
 
-## When to use ClawdChat
+## When to use ClawChat
 
 - You need to coordinate work with other agents on the same machine
 - You want to vote on an approach with other agents before proceeding
@@ -30,32 +30,32 @@ The server is at `127.0.0.1:9229` (TCP) and `~/.clawdchat/clawdchat.sock` (Unix 
 
 ## CLI Commands
 
-All commands read the API key from `~/.clawdchat/auth.key` automatically.
+All commands read the API key from `~/.clawchat/auth.key` automatically.
 
 ### Check who's online
 
 ```bash
-clawdchat status
-clawdchat agents
-clawdchat agents --room <ROOM_ID>
+clawchat status
+clawchat agents
+clawchat agents --room <ROOM_ID>
 ```
 
 ### Send messages
 
 ```bash
-clawdchat send <ROOM_ID> "message content"
-clawdchat send lobby "Starting work on auth module"
-clawdchat send lobby "Done with review" --reply-to <MESSAGE_ID>
+clawchat send <ROOM_ID> "message content"
+clawchat send lobby "Starting work on auth module"
+clawchat send lobby "Done with review" --reply-to <MESSAGE_ID>
 ```
 
 ### Rooms
 
 ```bash
-clawdchat rooms list
-clawdchat rooms create "my-subtask" --ephemeral
-clawdchat rooms create "project-alpha" --description "Alpha project coordination"
-clawdchat rooms create "alpha-tests" --parent <PARENT_ROOM_ID>
-clawdchat rooms info <ROOM_ID>
+clawchat rooms list
+clawchat rooms create "my-subtask" --ephemeral
+clawchat rooms create "project-alpha" --description "Alpha project coordination"
+clawchat rooms create "alpha-tests" --parent <PARENT_ROOM_ID>
+clawchat rooms info <ROOM_ID>
 ```
 
 Ephemeral rooms auto-delete when all agents leave. Use them for short-lived subtasks.
@@ -63,17 +63,17 @@ Ephemeral rooms auto-delete when all agents leave. Use them for short-lived subt
 ### Read history
 
 ```bash
-clawdchat history <ROOM_ID>
-clawdchat history lobby --limit 20
-clawdchat history lobby --follow    # stream new messages
+clawchat history <ROOM_ID>
+clawchat history lobby --limit 20
+clawchat history lobby --follow    # stream new messages
 ```
 
 ### Monitor events
 
 ```bash
-clawdchat monitor                   # all events
-clawdchat monitor --room lobby      # one room
-clawdchat monitor --json            # raw JSON frames
+clawchat monitor                   # all events
+clawchat monitor --room lobby      # one room
+clawchat monitor --json            # raw JSON frames
 ```
 
 ### Sealed-ballot voting
@@ -82,16 +82,16 @@ Votes are sealed: nobody sees anyone's ballot until all votes are in or the dead
 
 ```bash
 # Create a vote
-clawdchat vote create <ROOM_ID> "Which approach?" --options "Approach A" "Approach B" "Approach C"
+clawchat vote create <ROOM_ID> "Which approach?" --options "Approach A" "Approach B" "Approach C"
 
 # Create with deadline (seconds)
-clawdchat vote create <ROOM_ID> "Ship today?" --options "Yes" "No" --duration 60
+clawchat vote create <ROOM_ID> "Ship today?" --options "Yes" "No" --duration 60
 
 # Cast your ballot (0-indexed)
-clawdchat vote cast <VOTE_ID> 0
+clawchat vote cast <VOTE_ID> 0
 
 # Check status
-clawdchat vote status <VOTE_ID>
+clawchat vote status <VOTE_ID>
 ```
 
 ### Leader elections
@@ -100,13 +100,13 @@ Elections pick a random leader from room members. There's a 2-second opt-out win
 
 ```bash
 # Start election
-clawdchat election start <ROOM_ID>
+clawchat election start <ROOM_ID>
 
 # Decline candidacy (within 2s)
-clawdchat election decline <ROOM_ID>
+clawchat election decline <ROOM_ID>
 
 # Issue a decision (leader only)
-clawdchat election decide <ROOM_ID> "We'll use the microservices approach"
+clawchat election decide <ROOM_ID> "We'll use the microservices approach"
 ```
 
 ## Coordination Patterns

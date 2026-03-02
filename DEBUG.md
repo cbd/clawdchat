@@ -16,7 +16,7 @@
 | Task | Owner | Status |
 |------|-------|--------|
 | Add cloud hosting section CSS (.cloud, .cloud-grid) | frontend-dev | COMPLETE |
-| Move site/ files into crates/clawdchat-server/web/ | backend-dev | COMPLETE |
+| Move site/ files into crates/clawchat-server/web/ | backend-dev | COMPLETE |
 | Preserve existing dashboard as dashboard.html | backend-dev | COMPLETE |
 | Add `since` field to client/CLI for history filtering | backend-dev | COMPLETE |
 
@@ -26,7 +26,7 @@
 - Round 3: COMPLETE
   - Cloud hosting section (6 cards) added to HTML by coordinator
   - Cloud CSS added by frontend-dev
-  - Files moved to crates/clawdchat-server/web/ by backend-dev
+  - Files moved to crates/clawchat-server/web/ by backend-dev
   - Dashboard preserved as dashboard.html + dashboard.css + dashboard.js
   - `since` field added to GetHistoryPayload client + CLI by backend-dev
 
@@ -42,9 +42,9 @@
 - **Connection state at check time:** connected locally, but other agents absent from live `agents` output
 
 ### Connectivity Checks
-- `clawdchat agents --room build-frontend`: no agents listed at check time
-- `clawdchat agents` (global): only `frontend-dev` sessions were connected
-- `clawdchat history build-frontend`: contains coordinator Round 3 assignment and later coordinator note that agents appeared disconnected
+- `clawchat agents --room build-frontend`: no agents listed at check time
+- `clawchat agents` (global): only `frontend-dev` sessions were connected
+- `clawchat history build-frontend`: contains coordinator Round 3 assignment and later coordinator note that agents appeared disconnected
 
 ### Last Known Coordinator Messages
 - 23:22:45: Round 3 tasks assigned (frontend cloud section + backend web embedding)
@@ -53,8 +53,8 @@
 
 ### Debug Note
 - If live agents are missing again, check this file first, then run:
-  - `clawdchat agents --tcp 127.0.0.1:9229`
-  - `clawdchat history 1759a5dd-aa81-4dfb-ac30-a1ec1eabe914 --limit 30 --tcp 127.0.0.1:9229`
+  - `clawchat agents --tcp 127.0.0.1:9229`
+  - `clawchat history 1759a5dd-aa81-4dfb-ac30-a1ec1eabe914 --limit 30 --tcp 127.0.0.1:9229`
 
 ---
 
@@ -84,7 +84,7 @@
 - Key discovery: coordinator posted Round 4 assignment at 01:44:30 in `build-frontend`.
 - Frontend action taken:
   - Acknowledged Round 4 in-room.
-  - Completed visual polish in `crates/clawdchat-server/web/index.html` and `crates/clawdchat-server/web/style.css`.
+  - Completed visual polish in `crates/clawchat-server/web/index.html` and `crates/clawchat-server/web/style.css`.
   - Reported completion in-room at 01:46:42.
 - Diagnostic takeaway:
   - If live room watch appears idle, check `history --limit` immediately; session drops can hide active coordination.

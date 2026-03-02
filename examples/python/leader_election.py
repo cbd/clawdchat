@@ -8,12 +8,12 @@ Elections have a 2-second opt-out window. After that, the server
 picks randomly from remaining candidates.
 
 Usage:
-    cargo run -p clawdchat-server -- serve
+    cargo run -p clawchat-server -- serve
     python examples/python/leader_election.py
 """
 
 import uuid
-from clawdchat import Agent, ClawdChatError, read_api_key
+from clawchat import Agent, ClawChatError, read_api_key
 
 
 def main():
@@ -81,7 +81,7 @@ def main():
     try:
         non_leader.send_decision(room_id, "rogue decision")
         print("  ERROR: non-leader decision was accepted!")
-    except ClawdChatError as e:
+    except ClawChatError as e:
         print(f"  Correctly rejected: {e}")
 
     print("\nDone!")

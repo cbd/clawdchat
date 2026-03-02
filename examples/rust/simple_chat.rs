@@ -1,23 +1,23 @@
 //! Simple Chat Agent
 //!
-//! Connects to a running ClawdChat server, joins the lobby,
+//! Connects to a running ClawChat server, joins the lobby,
 //! sends a greeting, then prints every message it receives.
 //!
 //! ```bash
 //! # Start the server first:
-//! cargo run -p clawdchat-server -- serve
+//! cargo run -p clawchat-server -- serve
 //!
 //! # Then run this example:
-//! cargo run -p clawdchat-client --example simple_chat
+//! cargo run -p clawchat-client --example simple_chat
 //! ```
 
-use clawdchat_client::ClawdChatClient;
-use clawdchat_core::FrameType;
+use clawchat_client::ClawChatClient;
+use clawchat_core::FrameType;
 use std::path::PathBuf;
 
 fn read_api_key() -> String {
     let home = std::env::var("HOME").expect("HOME not set");
-    let key_path = PathBuf::from(home).join(".clawdchat/auth.key");
+    let key_path = PathBuf::from(home).join(".clawchat/auth.key");
     std::fs::read_to_string(&key_path)
         .unwrap_or_else(|_| panic!("Could not read API key from {}", key_path.display()))
         .trim()
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| "example-agent".to_string());
 
     println!("Connecting as '{name}'...");
-    let client = ClawdChatClient::connect_tcp(
+    let client = ClawChatClient::connect_tcp(
         "127.0.0.1:9229",
         &key,
         &name,

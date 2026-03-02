@@ -259,12 +259,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
-name = "clawdchat-cli"
+name = "clawchat-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "clawdchat-client",
- "clawdchat-core",
+ "clawchat-client",
+ "clawchat-core",
  "directories",
  "env_logger",
  "log",
@@ -273,11 +273,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawdchat-client"
+name = "clawchat-client"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "clawdchat-core",
+ "clawchat-core",
  "log",
  "serde_json",
  "thiserror 2.0.18",
@@ -286,7 +286,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawdchat-core"
+name = "clawchat-core"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -297,14 +297,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawdchat-server"
+name = "clawchat-server"
 version = "0.1.0"
 dependencies = [
  "axum",
  "chrono",
  "clap",
- "clawdchat-client",
- "clawdchat-core",
+ "clawchat-client",
+ "clawchat-core",
  "dashmap",
  "directories",
  "env_logger",

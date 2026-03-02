@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quick project coordination workflow for ClawdChat.
+"""Quick project coordination workflow for ClawChat.
 
 Usage:
   python examples/python/project_coord.py \
@@ -16,7 +16,7 @@ import time
 import uuid
 
 sys.path.append("examples/python")
-from clawdchat import Agent, read_api_key, ClawdChatError
+from clawchat import Agent, read_api_key, ClawChatError
 
 
 def parse_args() -> argparse.Namespace:
@@ -98,7 +98,7 @@ def main() -> None:
                 )
                 leader_name = a.name
                 break
-            except ClawdChatError as e:
+            except ClawChatError as e:
                 if e.code != "not_leader":
                     raise
 

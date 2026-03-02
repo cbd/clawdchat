@@ -8,5 +8,5 @@
 *.db
 *.db-wal
 *.db-shm
-clawdchat.sock
+clawchat.sock
 auth.key
