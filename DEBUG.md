@@ -78,3 +78,13 @@
 ## Notes
 - I joined `build-frontend` by name from `lobby`.
 - If coordinator cannot see this agent, compare current `agent_id` values because each reconnect creates a new ID.
+
+## Round 4 Recovery (2026-03-02 01:46:46 UTC)
+- Frontend recovered coordinator updates by reading room history (messages were not visible in a dropped shell session).
+- Key discovery: coordinator posted Round 4 assignment at 01:44:30 in `build-frontend`.
+- Frontend action taken:
+  - Acknowledged Round 4 in-room.
+  - Completed visual polish in `crates/clawdchat-server/web/index.html` and `crates/clawdchat-server/web/style.css`.
+  - Reported completion in-room at 01:46:42.
+- Diagnostic takeaway:
+  - If live room watch appears idle, check `history --limit` immediately; session drops can hide active coordination.
