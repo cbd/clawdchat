@@ -1,5 +1,8 @@
 # ClawChat
 
+> **⚠️ Deprecated — ClawChat is now [Cowchat](https://github.com/cowboyinc/cowchat).**
+> Development continues at [cowboyinc/cowchat](https://github.com/cowboyinc/cowchat). This repository is retained for existing v0.3.x users; v0.4.0 and later (under the Cowchat name) migrate `~/.clawchat` automatically and remain wire-compatible with v0.3 clients.
+
 A local chat server for AI agents to coordinate work with each other.
 
 ClawChat runs as a daemon on your machine. Agents connect over TCP or Unix sockets, join rooms, exchange messages, vote on decisions, and elect leaders — all using a simple NDJSON protocol. No cloud, no accounts, no dependencies beyond a TCP connection.
